@@ -1,14 +1,38 @@
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, Target, Users, Search, Plus } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp, Target, Users, Search, Plus } from "lucide-react";
+import { Bar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+} from "chart.js";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  ChartTooltip,
+  ChartLegend
+);
 
 interface DashboardStats {
   totalPitches: number;
@@ -31,69 +55,96 @@ interface ChartData {
 }
 
 const Dashboard = () => {
-  const [stats, setStats] = useState<DashboardStats>({ totalPitches: 0, totalSales: 0, hitRate: 0 });
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPitches: 0,
+    totalSales: 0,
+    hitRate: 0,
+  });
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
+    "monthly"
+  );
   const [loading, setLoading] = useState(true);
 
   const { userProfile, signOut } = useAuth();
+  console.log("Dashboard userProfile:", userProfile);
   const { toast } = useToast();
 
   const fetchDashboardData = async () => {
-    if (!userProfile || userProfile.role !== 'team_leader') return;
+    if (!userProfile || userProfile.role !== "team_leader") return;
 
     try {
       setLoading(true);
 
       // Fetch team members in the same organization
-      const { data: teamMembers, error: teamError } = await supabase
-        .from('persons')
-        .select('*')
-        .eq('organization_id', userProfile.organization_id);
+      let teamMembersRes;
+      if (
+        userProfile.organization_id === null ||
+        userProfile.organization_id === undefined
+      ) {
+        teamMembersRes = await supabase
+          .from("persons")
+          .select("*")
+          .is("organization_id", null);
+      } else {
+        teamMembersRes = await supabase
+          .from("persons")
+          .select("*")
+          .eq("organization_id", userProfile.organization_id);
+      }
+      const { data: teamMembers, error: teamError } = teamMembersRes;
 
       if (teamError) throw teamError;
 
-      const memberIds = teamMembers.map(member => member.id);
+      const memberIds = teamMembers.map((member) => member.id);
 
       // Fetch pitches for the organization
       const { data: pitches, error: pitchError } = await supabase
-        .from('pitches')
-        .select('*')
-        .in('user_id', memberIds);
+        .from("pitches")
+        .select("*")
+        .in("user_id", memberIds);
 
       if (pitchError) throw pitchError;
 
       // Fetch sales for the organization
       const { data: sales, error: salesError } = await supabase
-        .from('sales')
-        .select('*')
-        .in('user_id', memberIds);
+        .from("sales")
+        .select("*")
+        .in("user_id", memberIds);
 
       if (salesError) throw salesError;
 
       // Calculate stats
       const totalPitches = pitches.length;
       const totalSales = sales.length;
-      const hitRate = totalPitches > 0 ? Math.round((totalSales / totalPitches) * 100) : 0;
+      const hitRate =
+        totalPitches > 0 ? Math.round((totalSales / totalPitches) * 100) : 0;
 
       setStats({ totalPitches, totalSales, hitRate });
 
       // Calculate leaderboard
       const leaderboardData = teamMembers
-        .filter(member => member.role === 'user')
-        .map(member => {
-          const memberPitches = pitches.filter(p => p.user_id === member.id).length;
-          const memberSales = sales.filter(s => s.user_id === member.id).length;
-          const memberHitRate = memberPitches > 0 ? Math.round((memberSales / memberPitches) * 100) : 0;
+        .filter((member) => member.role === "user")
+        .map((member) => {
+          const memberPitches = pitches.filter(
+            (p) => p.user_id === member.id
+          ).length;
+          const memberSales = sales.filter(
+            (s) => s.user_id === member.id
+          ).length;
+          const memberHitRate =
+            memberPitches > 0
+              ? Math.round((memberSales / memberPitches) * 100)
+              : 0;
 
           return {
             id: member.id,
             name: member.name,
             pitches: memberPitches,
             sales: memberSales,
-            hitRate: memberHitRate
+            hitRate: memberHitRate,
           };
         })
         .sort((a, b) => b.hitRate - a.hitRate);
@@ -103,12 +154,11 @@ const Dashboard = () => {
       // Generate chart data (simplified for now)
       const chartDataTemp = generateChartData(sales, period);
       setChartData(chartDataTemp);
-
     } catch (error: any) {
       toast({
         title: "Error fetching dashboard data",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -119,21 +169,21 @@ const Dashboard = () => {
     // Simplified chart data generation
     const now = new Date();
     const data: ChartData[] = [];
-    
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
-      
-      const dateStr = date.toISOString().split('T')[0];
-      const daySales = salesData.filter(s => s.date === dateStr);
-      
+
+      const dateStr = date.toISOString().split("T")[0];
+      const daySales = salesData.filter((s) => s.date === dateStr);
+
       data.push({
         date: date.toLocaleDateString(),
         sales: daySales.reduce((sum, s) => sum + parseFloat(s.value), 0),
-        deals: daySales.length
+        deals: daySales.length,
       });
     }
-    
+
     return data;
   };
 
@@ -146,25 +196,33 @@ const Dashboard = () => {
 
     // Subscribe to real-time updates
     const pitchesSubscription = supabase
-      .channel('pitches-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'pitches'
-      }, () => {
-        fetchDashboardData();
-      })
+      .channel("pitches-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pitches",
+        },
+        () => {
+          fetchDashboardData();
+        }
+      )
       .subscribe();
 
     const salesSubscription = supabase
-      .channel('sales-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'sales'
-      }, () => {
-        fetchDashboardData();
-      })
+      .channel("sales-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sales",
+        },
+        () => {
+          fetchDashboardData();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -173,17 +231,19 @@ const Dashboard = () => {
     };
   }, [userProfile]);
 
-  const filteredLeaderboard = leaderboard.filter(entry =>
+  const filteredLeaderboard = leaderboard.filter((entry) =>
     entry.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (userProfile?.role !== 'team_leader') {
+  if (userProfile?.role !== "team_leader") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="p-6">
           <CardContent className="text-center">
             <h2 className="text-xl font-bold mb-2">Access Denied</h2>
-            <p className="text-muted-foreground">Only team leaders can access the dashboard.</p>
+            <p className="text-muted-foreground">
+              Only team leaders can access the dashboard.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -212,12 +272,16 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pitches</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Pitches
+              </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalPitches}</div>
-              <p className="text-xs text-muted-foreground">Complete this month</p>
+              <p className="text-xs text-muted-foreground">
+                Complete this month
+              </p>
             </CardContent>
           </Card>
 
@@ -228,7 +292,9 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalSales}</div>
-              <p className="text-xs text-muted-foreground">Complete this month</p>
+              <p className="text-xs text-muted-foreground">
+                Complete this month
+              </p>
             </CardContent>
           </Card>
 
@@ -239,55 +305,67 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.hitRate}%</div>
-              <p className="text-xs text-muted-foreground">Sales conversion rate</p>
+              <p className="text-xs text-muted-foreground">
+                Sales conversion rate
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Chart */}
+        {/* Chart.js Progress Bar for Pitch og Sales */}
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Team Sales Trends</CardTitle>
-              <Select value={period} onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setPeriod(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <CardTitle>Pitch vs Sales</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Overview of total DKK sales and deals won over the last 6 months.
+              Sammenligning af antal Pitch (rød) og Sales (blå) for teamet.
             </p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="sales" 
-                  stroke="hsl(var(--primary))" 
-                  name="DKK Sales"
-                  strokeWidth={2}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="deals" 
-                  stroke="hsl(var(--success))" 
-                  name="Deals Won"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div style={{ maxWidth: 600, margin: "0 auto" }}>
+              <Bar
+                data={{
+                  labels: ["Pitch", "Sales"],
+                  datasets: [
+                    {
+                      label: "Antal",
+                      data: [stats.totalPitches, stats.totalSales],
+                      backgroundColor: [
+                        "rgba(255, 99, 132, 0.7)", // Pitch (rød)
+                        "rgba(54, 162, 235, 0.7)", // Sales (blå)
+                      ],
+                      borderColor: [
+                        "rgba(255, 99, 132, 1)",
+                        "rgba(54, 162, 235, 1)",
+                      ],
+                      borderWidth: 1,
+                      borderRadius: 10,
+                      barPercentage: 0.5,
+                      categoryPercentage: 0.5,
+                    },
+                  ],
+                }}
+                options={{
+                  indexAxis: "y",
+                  plugins: {
+                    legend: { display: false },
+                    title: { display: false },
+                  },
+                  scales: {
+                    x: {
+                      beginAtZero: true,
+                      max:
+                        Math.max(stats.totalPitches, stats.totalSales, 1) * 1.2,
+                    },
+                    y: {
+                      grid: { display: false },
+                    },
+                  },
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+                height={80}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -322,24 +400,34 @@ const Dashboard = () => {
                   <div
                     key={entry.id}
                     className={`flex items-center justify-between p-3 rounded-lg border ${
-                      index < 3 ? 'bg-primary/5 border-primary/20' : 'bg-muted/50'
+                      index < 3
+                        ? "bg-primary/5 border-primary/20"
+                        : "bg-muted/50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        index < 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                      }`}>
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                          index < 3
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
                         {index + 1}
                       </div>
                       <span className="font-medium">{entry.name}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-muted-foreground">
-                        Pitches: <span className="font-medium">{entry.pitches}</span>
+                        Pitches:{" "}
+                        <span className="font-medium">{entry.pitches}</span>
                       </span>
                       <span className="text-muted-foreground">
-                        Sales: <span className="font-medium text-primary">{entry.sales}</span>
+                        Sales:{" "}
+                        <span className="font-medium text-primary">
+                          {entry.sales}
+                        </span>
                       </span>
                       <Badge variant={index < 3 ? "default" : "secondary"}>
                         {entry.hitRate}%

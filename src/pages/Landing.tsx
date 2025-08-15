@@ -1,50 +1,44 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, Target } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { TrendingUp, Target } from "lucide-react";
 
 const Landing = () => {
-  const [showPitchDialog, setShowPitchDialog] = useState(false);
-  const [showSaleDialog, setShowSaleDialog] = useState(false);
-  const [pitchValue, setPitchValue] = useState('');
-  const [saleValue, setSaleValue] = useState('');
+  // Fjern dialog og input state
   const [loading, setLoading] = useState(false);
-  
+
   const { userProfile, signOut } = useAuth();
   const { toast } = useToast();
 
   const handleLogPitch = async () => {
-    if (!userProfile || !pitchValue) return;
-    
+    if (!userProfile) return;
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('pitches')
-        .insert({
-          user_id: userProfile.id,
-          value: parseFloat(pitchValue),
-          date: new Date().toISOString().split('T')[0]
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Pitch logged successfully",
-        description: `Pitch value: ${pitchValue} DKK`
+      const { error } = await supabase.from("pitches").insert({
+        user_id: userProfile.id,
+        value: 1,
+        date: new Date().toISOString().split("T")[0],
       });
-      
-      setPitchValue('');
-      setShowPitchDialog(false);
+      if (error) throw error;
+      toast({
+        title: "Pitch logged!",
+        description: `Pitch count increased by 1.`,
+      });
     } catch (error: any) {
       toast({
         title: "Error logging pitch",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -52,32 +46,24 @@ const Landing = () => {
   };
 
   const handleLogSale = async () => {
-    if (!userProfile || !saleValue) return;
-    
+    if (!userProfile) return;
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('sales')
-        .insert({
-          user_id: userProfile.id,
-          value: parseFloat(saleValue),
-          date: new Date().toISOString().split('T')[0]
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Sale logged successfully",
-        description: `Sale value: ${saleValue} DKK`
+      const { error } = await supabase.from("sales").insert({
+        user_id: userProfile.id,
+        value: 1,
+        date: new Date().toISOString().split("T")[0],
       });
-      
-      setSaleValue('');
-      setShowSaleDialog(false);
+      if (error) throw error;
+      toast({
+        title: "Sale logged!",
+        description: `Sale count increased by 1.`,
+      });
     } catch (error: any) {
       toast({
         title: "Error logging sale",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -113,102 +99,27 @@ const Landing = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
             <Button
-              onClick={() => setShowPitchDialog(true)}
+              onClick={handleLogPitch}
               className="flex-1 h-16 text-lg font-medium"
               variant="outline"
+              disabled={loading}
             >
               <Target className="mr-2 h-6 w-6" />
-              Log New Pitch
+              Log Pitch
             </Button>
-            
             <Button
-              onClick={() => setShowSaleDialog(true)}
+              onClick={handleLogSale}
               className="flex-1 h-16 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={loading}
             >
               <TrendingUp className="mr-2 h-6 w-6" />
-              Log New Sale
+              Log Sale
             </Button>
           </div>
         </div>
       </main>
 
-      {/* Pitch Dialog */}
-      <Dialog open={showPitchDialog} onOpenChange={setShowPitchDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Log New Pitch</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pitchValue">Pitch Value (DKK)</Label>
-              <Input
-                id="pitchValue"
-                type="number"
-                value={pitchValue}
-                onChange={(e) => setPitchValue(e.target.value)}
-                placeholder="Enter pitch value"
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowPitchDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleLogPitch}
-                disabled={loading || !pitchValue}
-              >
-                {loading ? 'Logging...' : 'Log Pitch'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sale Dialog */}
-      <Dialog open={showSaleDialog} onOpenChange={setShowSaleDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Log New Sale</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="saleValue">Sale Value (DKK)</Label>
-              <Input
-                id="saleValue"
-                type="number"
-                value={saleValue}
-                onChange={(e) => setSaleValue(e.target.value)}
-                placeholder="Enter sale value"
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowSaleDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleLogSale}
-                disabled={loading || !saleValue}
-              >
-                {loading ? 'Logging...' : 'Log Sale'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Dialogs fjernet - nu kun klik */}
     </div>
   );
 };

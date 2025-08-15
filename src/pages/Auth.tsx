@@ -1,22 +1,34 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'user' | 'team_leader'>('user');
-  const [organizationId, setOrganizationId] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<"user" | "team_leader">("user");
+  const [organizationId, setOrganizationId] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -32,37 +44,39 @@ const Auth = () => {
           toast({
             title: "Login failed",
             description: error.message,
-            variant: "destructive"
+            variant: "destructive",
           });
         } else {
-          navigate('/');
+          navigate("/");
         }
       } else {
         const userData = {
           name,
           role,
-          organization_id: organizationId || null
+          organization_id: organizationId || null,
         };
-        
+        console.log("Signup userData:", userData);
         const { error } = await signUp(email, password, userData);
         if (error) {
+          console.error("Signup error:", error);
           toast({
-            title: "Signup failed", 
+            title: "Signup failed",
             description: error.message,
-            variant: "destructive"
+            variant: "destructive",
           });
         } else {
           toast({
             title: "Account created",
-            description: "Check your email to verify your account"
+            description: "Check your email to verify your account",
           });
         }
       }
     } catch (error: any) {
+      console.error("Signup exception:", error);
       toast({
         title: "Error",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -77,7 +91,7 @@ const Auth = () => {
             Pitch'nSales
           </CardTitle>
           <CardDescription>
-            {isLogin ? 'Sign in to your account' : 'Create a new account'}
+            {isLogin ? "Sign in to your account" : "Create a new account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -94,7 +108,7 @@ const Auth = () => {
                 />
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -121,7 +135,12 @@ const Auth = () => {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={role} onValueChange={(value: 'user' | 'team_leader') => setRole(value)}>
+                  <Select
+                    value={role}
+                    onValueChange={(value: "user" | "team_leader") =>
+                      setRole(value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -133,7 +152,9 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="organizationId">Organization ID (optional)</Label>
+                  <Label htmlFor="organizationId">
+                    Organization ID (optional)
+                  </Label>
                   <Input
                     id="organizationId"
                     type="text"
@@ -146,7 +167,7 @@ const Auth = () => {
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+              {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
 
@@ -156,7 +177,9 @@ const Auth = () => {
               onClick={() => setIsLogin(!isLogin)}
               className="text-sm"
             >
-              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              {isLogin
+                ? "Don't have an account? Sign up"
+                : "Already have an account? Sign in"}
             </Button>
           </div>
         </CardContent>
