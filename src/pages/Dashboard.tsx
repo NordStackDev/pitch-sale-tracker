@@ -91,7 +91,7 @@ const Dashboard = () => {
 
   // Reset hele databasen (kun for teamleads)
   const handleResetDatabase = async () => {
-    if (!userProfile || !userProfile.roles.some(r => r.role === "team_leader")) return;
+    if (!userProfile || userProfile.role !== "team_leader") return;
     setLoading(true);
     try {
       const { error: pitchError } = await supabase
@@ -121,7 +121,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchOrg = async () => {
-      if (userProfile?.roles.some(r => r.role === "team_leader") && userProfile.organization_id) {
+      if (userProfile?.role === "team_leader" && userProfile.organization_id) {
         const { data, error } = await supabase
           .from("organizations")
           .select("id, name")
@@ -141,7 +141,7 @@ const Dashboard = () => {
   }, [userProfile]);
 
   const fetchDashboardData = async () => {
-    if (!userProfile || !userProfile.roles.some(r => r.role === "team_leader")) return;
+    if (!userProfile || userProfile.role !== "team_leader") return;
 
     try {
       setLoading(true);
@@ -299,7 +299,7 @@ const Dashboard = () => {
     entry.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!userProfile?.roles.some(r => r.role === "team_leader")) {
+  if (!userProfile || userProfile.role !== "team_leader") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="p-6">

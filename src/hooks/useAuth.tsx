@@ -20,13 +20,9 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  role: "team_leader" | "user" | "admin";
   organization_id: string;
   team_leader_id?: string;
-  roles: Array<{
-    role: string;
-    role_id: string;
-    org_id: string;
-  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,16 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Fetch person data along with their role from person_roles table
       const { data, error } = await supabase
         .from("persons")
         .select(`
           *,
-          person_roles!inner (
-            role_id,
-            org_id,
-            roles (
-              role
-            )
+          person_roles!inner(
+            roles!inner(role)
           )
         `)
         .eq("auth_user_id", userId)
@@ -62,17 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data) {
-        // Transform the data to match our interface
-        const userProfile = {
+        // Extract role from the joined data
+        const role = data.person_roles?.[0]?.roles?.role || "user";
+        const profile = {
           ...data,
-          roles: data.person_roles.map((pr: any) => ({
-            role: pr.roles.role,
-            role_id: pr.role_id,
-            org_id: pr.org_id
-          }))
+          role: role as "team_leader" | "user" | "admin"
         };
-        delete userProfile.person_roles;
-        setUserProfile(userProfile);
+        setUserProfile(profile);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
