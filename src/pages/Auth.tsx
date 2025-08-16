@@ -32,6 +32,7 @@ const Auth = () => {
   const [organizationName, setOrganizationName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signupError, setSignupError] = useState("");
 
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
@@ -39,12 +40,14 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSignupError("");
     setLoading(true);
 
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
+          setSignupError(error.message || "Login failed");
           toast({
             title: "Login failed",
             description: error.message,
@@ -98,6 +101,7 @@ const Auth = () => {
         console.log("Signup userData:", userData);
         const { error } = await signUp(email, password, userData);
         if (error) {
+          setSignupError(error.message || "Signup failed");
           console.error("Signup error:", error);
           toast({
             title: "Signup failed",
@@ -190,35 +194,7 @@ const Auth = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {role === "team_leader" ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="companyName">Company Name</Label>
-                      <Input
-                        id="companyName"
-                        type="text"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Enter company name"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationName">
-                        Organization Name
-                      </Label>
-                      <Input
-                        id="organizationName"
-                        type="text"
-                        value={organizationName}
-                        onChange={(e) => setOrganizationName(e.target.value)}
-                        placeholder="Enter organization name"
-                        required
-                      />
-                    </div>
-                  </>
-                ) : (
+                {role === "user" && (
                   <div className="space-y-2">
                     <Label htmlFor="organizationId">
                       Organization ID (få fra din teamlead)
@@ -236,6 +212,11 @@ const Auth = () => {
               </>
             )}
 
+            {signupError && (
+              <div className="text-red-600 text-sm mb-2 text-center">
+                {signupError}
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>

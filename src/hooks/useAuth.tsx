@@ -14,6 +14,7 @@ interface AuthContextType {
     userData: any
   ) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  fetchUserProfile: (userId: string) => Promise<void>;
 }
 
 interface UserProfile {
@@ -38,12 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fetch person data along with their role from person_roles table
       const { data, error } = await supabase
         .from("persons")
-        .select(`
+        .select(
+          `
           *,
           person_roles!inner(
             roles!inner(role)
           )
-        `)
+        `
+        )
         .eq("auth_user_id", userId)
         .maybeSingle();
 
@@ -59,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const role = data.person_roles?.[0]?.roles?.role || "user";
         const profile = {
           ...data,
-          role: role as "team_leader" | "user" | "admin"
+          role: role as "team_leader" | "user" | "admin",
         };
         setUserProfile(profile);
       }
@@ -139,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signOut,
+    fetchUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
