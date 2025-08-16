@@ -52,14 +52,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={<Navigate to="/" replace />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            {userProfile?.role === "team_leader" ? <Dashboard /> : <Landing />}
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/" element={<Navigate to="/landing" replace />} />
       <Route
         path="/dashboard"
         element={
