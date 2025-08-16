@@ -16,11 +16,14 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, Target, Users, Search, Plus } from "lucide-react";
 import { Chart } from "react-chartjs-2";
+
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip as ChartTooltip,
   Legend as ChartLegend,
@@ -30,6 +33,8 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   ChartTooltip,
   ChartLegend
@@ -56,6 +61,35 @@ interface ChartData {
 }
 
 const Dashboard = () => {
+  // Reset hele databasen (kun for teamleads)
+  const handleResetDatabase = async () => {
+    if (!userProfile || userProfile.role !== "team_leader") return;
+    setLoading(true);
+    try {
+      const { error: pitchError } = await supabase
+        .from("pitches")
+        .delete()
+        .neq("id", "");
+      const { error: salesError } = await supabase
+        .from("sales")
+        .delete()
+        .neq("id", "");
+      if (pitchError || salesError) throw pitchError || salesError;
+      toast({
+        title: "Database nulstillet!",
+        description: "Alle pitches og sales er nu slettet.",
+      });
+      fetchDashboardData();
+    } catch (error: any) {
+      toast({
+        title: "Fejl ved reset",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const [stats, setStats] = useState<DashboardStats>({
     totalPitches: 0,
     totalSales: 0,
@@ -96,6 +130,35 @@ const Dashboard = () => {
           .eq("organization_id", userProfile.organization_id);
       }
       const { data: teamMembers, error: teamError } = teamMembersRes;
+      // Reset hele databasen (kun for teamleads)
+      const handleResetDatabase = async () => {
+        if (!userProfile || userProfile.role !== "team_leader") return;
+        setLoading(true);
+        try {
+          const { error: pitchError } = await supabase
+            .from("pitches")
+            .delete()
+            .not("id", "is", null);
+          const { error: salesError } = await supabase
+            .from("sales")
+            .delete()
+            .not("id", "is", null);
+          if (pitchError || salesError) throw pitchError || salesError;
+          toast({
+            title: "Database nulstillet!",
+            description: "Alle pitches og sales er nu slettet.",
+          });
+          fetchDashboardData();
+        } catch (error: any) {
+          toast({
+            title: "Fejl ved reset",
+            description: error.message,
+            variant: "destructive",
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
 
       if (teamError) throw teamError;
 
@@ -263,6 +326,13 @@ const Dashboard = () => {
             </span>
             <Button variant="outline" onClick={signOut}>
               Sign Out
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleResetDatabase}
+              disabled={loading}
+            >
+              Reset Data
             </Button>
           </div>
         </div>

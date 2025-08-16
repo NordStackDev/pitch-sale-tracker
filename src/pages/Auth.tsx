@@ -47,7 +47,7 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
-          navigate("/");
+          navigate("/landing");
         }
       } else {
         const userData = {
