@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from "uuid";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -27,6 +29,8 @@ const Auth = () => {
   const [name, setName] = useState("");
   const [role, setRole] = useState<"user" | "team_leader">("user");
   const [organizationId, setOrganizationId] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { signIn, signUp } = useAuth();
@@ -50,10 +54,46 @@ const Auth = () => {
           navigate("/landing");
         }
       } else {
+        let orgId = organizationId || null;
+        // Hvis teamlead, opret org først
+        if (role === "team_leader" && !organizationId) {
+          // Opret company først
+          const companyId = uuidv4();
+          const { data: company, error: companyError } = await supabase
+            .from("companies")
+            .insert([{ name: companyName, id: companyId }])
+            .select()
+            .single();
+          if (companyError) {
+            toast({
+              title: "Fejl ved oprettelse af company",
+              description: companyError.message,
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+          // Opret org med navn og company_id
+          const { data: org, error: orgError } = await supabase
+            .from("organizations")
+            .insert([{ name: organizationName, company_id: companyId }])
+            .select()
+            .single();
+          if (orgError) {
+            toast({
+              title: "Fejl ved oprettelse af organisation",
+              description: orgError.message,
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+          orgId = org.id;
+        }
         const userData = {
           name,
           role,
-          organization_id: organizationId || null,
+          organization_id: orgId,
         };
         console.log("Signup userData:", userData);
         const { error } = await signUp(email, password, userData);
@@ -151,18 +191,48 @@ const Auth = () => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="organizationId">
-                    Organization ID (optional)
-                  </Label>
-                  <Input
-                    id="organizationId"
-                    type="text"
-                    value={organizationId}
-                    onChange={(e) => setOrganizationId(e.target.value)}
-                    placeholder="Leave empty if creating new organization"
-                  />
-                </div>
+                {role === "team_leader" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName">Company Name</Label>
+                      <Input
+                        id="companyName"
+                        type="text"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="Enter company name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="organizationName">
+                        Organization Name
+                      </Label>
+                      <Input
+                        id="organizationName"
+                        type="text"
+                        value={organizationName}
+                        onChange={(e) => setOrganizationName(e.target.value)}
+                        placeholder="Enter organization name"
+                        required
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="organizationId">
+                      Organization ID (få fra din teamlead)
+                    </Label>
+                    <Input
+                      id="organizationId"
+                      type="text"
+                      value={organizationId}
+                      onChange={(e) => setOrganizationId(e.target.value)}
+                      placeholder="Indtast org ID fra din teamlead"
+                      required
+                    />
+                  </div>
+                )}
               </>
             )}
 

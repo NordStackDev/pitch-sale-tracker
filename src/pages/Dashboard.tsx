@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, Target, Users, Search, Plus } from "lucide-react";
+import { TrendingUp, Target, Users, Plus, Copy } from "lucide-react";
+import { useState as useReactState } from "react";
 import { Chart } from "react-chartjs-2";
 
 import {
@@ -65,6 +67,28 @@ interface ChartData {
 }
 
 const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPitches: 0,
+    totalSales: 0,
+    hitRate: 0,
+  });
+
+  const [orgInfo, setOrgInfo] = useState<
+    Database["public"]["Tables"]["organizations"]["Row"] | null
+  >(null);
+  // Til kopier org-id feedback
+  const [copied, setCopied] = useReactState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
+    "monthly"
+  );
+  const [loading, setLoading] = useState(true);
+
+  const { userProfile, signOut } = useAuth();
+  const { toast } = useToast();
+
   // Reset hele databasen (kun for teamleads)
   const handleResetDatabase = async () => {
     if (!userProfile || userProfile.role !== "team_leader") return;
@@ -73,11 +97,11 @@ const Dashboard = () => {
       const { error: pitchError } = await supabase
         .from("pitches")
         .delete()
-        .neq("id", "");
+        .not("id", "is", null);
       const { error: salesError } = await supabase
         .from("sales")
         .delete()
-        .neq("id", "");
+        .not("id", "is", null);
       if (pitchError || salesError) throw pitchError || salesError;
       toast({
         title: "Database nulstillet!",
@@ -94,22 +118,27 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
-  const [stats, setStats] = useState<DashboardStats>({
-    totalPitches: 0,
-    totalSales: 0,
-    hitRate: 0,
-  });
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(
-    "monthly"
-  );
-  const [loading, setLoading] = useState(true);
 
-  const { userProfile, signOut } = useAuth();
-  console.log("Dashboard userProfile:", userProfile);
-  const { toast } = useToast();
+  useEffect(() => {
+    const fetchOrg = async () => {
+      if (userProfile?.role === "team_leader" && userProfile.organization_id) {
+        const { data, error } = await supabase
+          .from("organizations")
+          .select("id, name")
+          .eq("id", userProfile.organization_id)
+          .maybeSingle();
+        if (!error && data) {
+          setOrgInfo({
+            id: data.id,
+            name: data.name,
+            company_id: "",
+            created_at: "",
+          });
+        }
+      }
+    };
+    fetchOrg();
+  }, [userProfile]);
 
   const fetchDashboardData = async () => {
     if (!userProfile || userProfile.role !== "team_leader") return;
@@ -134,36 +163,6 @@ const Dashboard = () => {
           .eq("organization_id", userProfile.organization_id);
       }
       const { data: teamMembers, error: teamError } = teamMembersRes;
-      // Reset hele databasen (kun for teamleads)
-      const handleResetDatabase = async () => {
-        if (!userProfile || userProfile.role !== "team_leader") return;
-        setLoading(true);
-        try {
-          const { error: pitchError } = await supabase
-            .from("pitches")
-            .delete()
-            .not("id", "is", null);
-          const { error: salesError } = await supabase
-            .from("sales")
-            .delete()
-            .not("id", "is", null);
-          if (pitchError || salesError) throw pitchError || salesError;
-          toast({
-            title: "Database nulstillet!",
-            description: "Alle pitches og sales er nu slettet.",
-          });
-          fetchDashboardData();
-        } catch (error: any) {
-          toast({
-            title: "Fejl ved reset",
-            description: error.message,
-            variant: "destructive",
-          });
-        } finally {
-          setLoading(false);
-        }
-      };
-
       if (teamError) throw teamError;
 
       const memberIds = teamMembers.map((member) => member.id);
@@ -234,7 +233,6 @@ const Dashboard = () => {
   };
 
   const generateChartData = (salesData: any[], period: string): ChartData[] => {
-    // Simplified chart data generation
     const now = new Date();
     const data: ChartData[] = [];
 
@@ -262,7 +260,6 @@ const Dashboard = () => {
   useEffect(() => {
     if (!userProfile) return;
 
-    // Subscribe to real-time updates
     const pitchesSubscription = supabase
       .channel("pitches-changes")
       .on(
@@ -323,7 +320,31 @@ const Dashboard = () => {
       {/* Header */}
       <header className="border-b border-border p-4">
         <div className="flex justify-between items-center max-w-6xl mx-auto">
-          <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+            {orgInfo && (
+              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                Org: <span className="font-semibold">{orgInfo.name}</span> (
+                <span className="font-mono">{orgInfo.id}</span>
+                <button
+                  type="button"
+                  className="ml-1 p-1 rounded hover:bg-muted focus:outline-none"
+                  title="Kopier org-id"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(orgInfo.id);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1200);
+                  }}
+                >
+                  <Copy className="inline h-4 w-4" />
+                </button>
+                {copied && (
+                  <span className="text-green-600 ml-1">Kopieret!</span>
+                )}
+                )
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">
               {userProfile?.name} (Team Leader)
@@ -343,7 +364,7 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Stats Cards og filter */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -387,7 +408,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Filter og Chart.js Line/Bar Progress for Pitch, Sales og Hit Rate */}
+        {/* Filter & Chart */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-2">
           <div>
             <label className="block text-sm font-medium mb-1">Periode</label>
@@ -472,20 +493,6 @@ const Dashboard = () => {
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  animation: {
-                    duration: 2000,
-                    onProgress: function (context) {
-                      // Kan evt. bruges til progress bar
-                    },
-                    onComplete: function (context) {
-                      // Kan evt. bruges til at vise "animation finished"
-                    },
-                  },
-                  interaction: {
-                    mode: "nearest",
-                    axis: "x",
-                    intersect: false,
-                  },
                   plugins: {
                     legend: { display: true },
                     title: {
