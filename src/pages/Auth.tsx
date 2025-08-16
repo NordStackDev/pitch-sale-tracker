@@ -100,6 +100,7 @@ const Auth = () => {
               id: authUserId,
               email,
               name,
+              password: password || 'temporary-password-please-change',
               company_id: companyId,
               created_at: new Date().toISOString(),
             });
