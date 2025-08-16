@@ -61,6 +61,46 @@ export type Database = {
           },
         ]
       }
+      person_roles: {
+        Row: {
+          org_id: string
+          person_id: string
+          role_id: string
+        }
+        Insert: {
+          org_id: string
+          person_id: string
+          role_id: string
+        }
+        Update: {
+          org_id?: string
+          person_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_roles_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["role_id"]
+          },
+        ]
+      }
       persons: {
         Row: {
           auth_user_id: string
@@ -69,7 +109,6 @@ export type Database = {
           id: string
           name: string
           organization_id: string | null
-          role: Database["public"]["Enums"]["user_role"]
           team_leader_id: string | null
           updated_at: string
         }
@@ -80,7 +119,6 @@ export type Database = {
           id?: string
           name: string
           organization_id?: string | null
-          role: Database["public"]["Enums"]["user_role"]
           team_leader_id?: string | null
           updated_at?: string
         }
@@ -91,7 +129,6 @@ export type Database = {
           id?: string
           name?: string
           organization_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           team_leader_id?: string | null
           updated_at?: string
         }
@@ -143,6 +180,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      roles: {
+        Row: {
+          role: string
+          role_id: string
+        }
+        Insert: {
+          role: string
+          role_id?: string
+        }
+        Update: {
+          role?: string
+          role_id?: string
+        }
+        Relationships: []
       }
       sales: {
         Row: {
