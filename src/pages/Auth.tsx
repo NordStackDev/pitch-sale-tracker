@@ -88,7 +88,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-primary">
-            Pitch'nSales
+            Nordstack Pitch'nSales
           </CardTitle>
           <CardDescription>
             {isLogin ? "Sign in to your account" : "Create a new account"}

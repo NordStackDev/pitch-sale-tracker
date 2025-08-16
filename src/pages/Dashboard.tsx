@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, Target, Users, Search, Plus } from "lucide-react";
-import { Bar } from "react-chartjs-2";
+import { Chart } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -268,7 +269,7 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Stats Cards */}
+        {/* Stats Cards og filter */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -312,58 +313,128 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Chart.js Progress Bar for Pitch og Sales */}
+        {/* Filter og Chart.js Line/Bar Progress for Pitch, Sales og Hit Rate */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-2">
+          <div>
+            <label className="block text-sm font-medium mb-1">Periode</label>
+            <Select
+              value={period}
+              onValueChange={(v) =>
+                setPeriod(v as "daily" | "weekly" | "monthly")
+              }
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Dag</SelectItem>
+                <SelectItem value="weekly">Uge</SelectItem>
+                <SelectItem value="monthly">Måned</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full md:w-64">
+            <label className="block text-sm font-medium mb-1">
+              Søg teammedlem
+            </label>
+            <Input
+              placeholder="Søg teammedlem..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        </div>
         <Card>
           <CardHeader>
-            <CardTitle>Pitch vs Sales</CardTitle>
+            <CardTitle>Pitch, Sales & Hit Rate</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Sammenligning af antal Pitch (rød) og Sales (blå) for teamet.
+              Udvikling af Pitch (rød), Sales (blå) og Hit Rate (%) (grøn) for
+              teamet.
             </p>
           </CardHeader>
           <CardContent>
-            <div style={{ maxWidth: 600, margin: "0 auto" }}>
-              <Bar
+            <div style={{ maxWidth: 700, margin: "0 auto", height: 300 }}>
+              <Chart
+                type="bar"
                 data={{
-                  labels: ["Pitch", "Sales"],
+                  labels: chartData.map((d) => d.date),
                   datasets: [
                     {
-                      label: "Antal",
-                      data: [stats.totalPitches, stats.totalSales],
-                      backgroundColor: [
-                        "rgba(255, 99, 132, 0.7)", // Pitch (rød)
-                        "rgba(54, 162, 235, 0.7)", // Sales (blå)
-                      ],
-                      borderColor: [
-                        "rgba(255, 99, 132, 1)",
-                        "rgba(54, 162, 235, 1)",
-                      ],
+                      type: "bar" as const,
+                      label: "Pitch",
+                      data: chartData.map((d) => d.deals),
+                      backgroundColor: "rgba(255, 99, 132, 0.7)",
+                      borderColor: "rgba(255, 99, 132, 1)",
                       borderWidth: 1,
                       borderRadius: 10,
-                      barPercentage: 0.5,
-                      categoryPercentage: 0.5,
+                      yAxisID: "y",
+                    },
+                    {
+                      type: "bar" as const,
+                      label: "Sales",
+                      data: chartData.map((d) => d.sales),
+                      backgroundColor: "rgba(54, 162, 235, 0.7)",
+                      borderColor: "rgba(54, 162, 235, 1)",
+                      borderWidth: 1,
+                      borderRadius: 10,
+                      yAxisID: "y",
+                    },
+                    {
+                      type: "line" as const,
+                      label: "Hit Rate (%)",
+                      data: chartData.map((d) =>
+                        d.deals > 0 ? Math.round((d.sales / d.deals) * 100) : 0
+                      ),
+                      borderColor: "rgba(75, 192, 192, 1)",
+                      backgroundColor: "rgba(75, 192, 192, 0.2)",
+                      borderWidth: 2,
+                      fill: false,
+                      tension: 0.3,
+                      yAxisID: "y1",
                     },
                   ],
                 }}
                 options={{
-                  indexAxis: "y",
-                  plugins: {
-                    legend: { display: false },
-                    title: { display: false },
-                  },
-                  scales: {
-                    x: {
-                      beginAtZero: true,
-                      max:
-                        Math.max(stats.totalPitches, stats.totalSales, 1) * 1.2,
-                    },
-                    y: {
-                      grid: { display: false },
-                    },
-                  },
                   responsive: true,
                   maintainAspectRatio: false,
+                  animation: {
+                    duration: 2000,
+                    onProgress: function (context) {
+                      // Kan evt. bruges til progress bar
+                    },
+                    onComplete: function (context) {
+                      // Kan evt. bruges til at vise "animation finished"
+                    },
+                  },
+                  interaction: {
+                    mode: "nearest",
+                    axis: "x",
+                    intersect: false,
+                  },
+                  plugins: {
+                    legend: { display: true },
+                    title: {
+                      display: true,
+                      text: "Pitch, Sales & Hit Rate (%) over tid",
+                    },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      title: { display: true, text: "Antal" },
+                    },
+                    y1: {
+                      beginAtZero: true,
+                      position: "right" as const,
+                      title: { display: true, text: "Hit Rate (%)" },
+                      grid: { drawOnChartArea: false },
+                      min: 0,
+                      max: 100,
+                    },
+                  },
                 }}
-                height={80}
+                height={300}
               />
             </div>
           </CardContent>
@@ -384,58 +455,44 @@ const Dashboard = () => {
             </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search team members..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {filteredLeaderboard.map((entry, index) => (
-                  <div
-                    key={entry.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      index < 3
-                        ? "bg-primary/5 border-primary/20"
-                        : "bg-muted/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          index < 3
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {index + 1}
-                      </div>
-                      <span className="font-medium">{entry.name}</span>
+            <div className="space-y-2">
+              {filteredLeaderboard.map((entry, index) => (
+                <div
+                  key={entry.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    index < 3 ? "bg-primary/5 border-primary/20" : "bg-muted/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        index < 3
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {index + 1}
                     </div>
-
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-muted-foreground">
-                        Pitches:{" "}
-                        <span className="font-medium">{entry.pitches}</span>
-                      </span>
-                      <span className="text-muted-foreground">
-                        Sales:{" "}
-                        <span className="font-medium text-primary">
-                          {entry.sales}
-                        </span>
-                      </span>
-                      <Badge variant={index < 3 ? "default" : "secondary"}>
-                        {entry.hitRate}%
-                      </Badge>
-                    </div>
+                    <span className="font-medium">{entry.name}</span>
                   </div>
-                ))}
-              </div>
+
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-muted-foreground">
+                      Pitches:{" "}
+                      <span className="font-medium">{entry.pitches}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Sales:{" "}
+                      <span className="font-medium text-primary">
+                        {entry.sales}
+                      </span>
+                    </span>
+                    <Badge variant={index < 3 ? "default" : "secondary"}>
+                      {entry.hitRate}%
+                    </Badge>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

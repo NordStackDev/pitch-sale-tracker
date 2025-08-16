@@ -12,7 +12,7 @@ import NotFound from "./pages/NotFound";
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -20,18 +20,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
 // Main app routes
 const AppRoutes = () => {
   const { user, userProfile, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -52,21 +52,29 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={<Navigate to="/" replace />} />
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={
           <ProtectedRoute>
-            {userProfile?.role === 'team_leader' ? <Dashboard /> : <Landing />}
+            {userProfile?.role === "team_leader" ? <Dashboard /> : <Landing />}
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/dashboard" 
+      <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
-        } 
+        }
+      />
+      <Route
+        path="/landing"
+        element={
+          <ProtectedRoute>
+            <Landing />
+          </ProtectedRoute>
+        }
       />
       <Route path="*" element={<NotFound />} />
     </Routes>
