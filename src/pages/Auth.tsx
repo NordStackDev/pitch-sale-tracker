@@ -93,6 +93,18 @@ const Auth = () => {
 
           const authUserId = signData?.user?.id;
 
+          // Opret users-række for teamlead (så pitch/sale virker)
+          if (authUserId) {
+            // @ts-ignore - demo types
+            await supabase.from("users").upsert({
+              id: authUserId,
+              email,
+              name,
+              company_id: companyId,
+              created_at: new Date().toISOString(),
+            });
+          }
+
           // Wait briefly for DB trigger to create persons row; if not created, insert it manually
           // @ts-ignore
           let { data: personRow } = await supabase.from("persons").select("id").eq("auth_user_id", authUserId).maybeSingle();
