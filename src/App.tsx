@@ -8,7 +8,6 @@ import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
-import CreateCompanyOrg from "./pages/CreateCompanyOrg";
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -46,19 +45,6 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="*" element={<Navigate to="/auth" replace />} />
-      </Routes>
-    );
-  }
-
-  // Hvis teamlead og mangler org, vis oprettelsesflow
-  if (userProfile?.role === "team_leader" && !userProfile.organization_id) {
-    return (
-      <Routes>
-        <Route path="/create-company-org" element={<CreateCompanyOrg />} />
-        <Route
-          path="*"
-          element={<Navigate to="/create-company-org" replace />}
-        />
       </Routes>
     );
   }
