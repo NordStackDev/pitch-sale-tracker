@@ -27,9 +27,8 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"user" | "team_leader">("user");
-  const [organizationId, setOrganizationId] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
+    // Fjernet rollevalg, signup på forsiden opretter altid teamlead
+  // Fjernet organizationId og organizationName, bruges ikke
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -54,16 +53,11 @@ const Auth = () => {
           navigate("/landing");
         }
       } else {
-        let orgId = organizationId || null;
-        // Hvis teamlead, opret org først
-        if (role === "team_leader" && !organizationId) {
-          // Opret company først
-          const companyId = uuidv4();
-          const { data: company, error: companyError } = await supabase
-            .from("companies")
-            .insert([{ name: companyName, id: companyId }])
-            .select()
-            .single();
+        // Opret company hvis teamlead
+        // Opret company hvis teamlead
+          // Signup på forsiden opretter ALTID en teamlead (role_id=1)
+          let companyId = uuidv4();
+          const { error: companyError } = await supabase.from("companies").insert([{ name: companyName, id: companyId }]);
           if (companyError) {
             toast({
               title: "Fejl ved oprettelse af company",
@@ -73,43 +67,43 @@ const Auth = () => {
             setLoading(false);
             return;
           }
-          // Opret org med navn og company_id
-          const { data: org, error: orgError } = await supabase
-            .from("organizations")
-            .insert([{ name: organizationName, company_id: companyId }])
-            .select()
-            .single();
+          // Create an organization for this company (demo simplification)
+          const orgId = uuidv4();
+          const { error: orgError } = await supabase.from("organizations").insert([{ id: orgId, name: companyName, company_id: companyId }]);
           if (orgError) {
-            toast({
-              title: "Fejl ved oprettelse af organisation",
-              description: orgError.message,
-              variant: "destructive",
-            });
+            toast({ title: "Fejl ved oprettelse af organisation", description: orgError.message, variant: "destructive" });
             setLoading(false);
             return;
           }
-          orgId = org.id;
-        }
-        const userData = {
-          name,
-          role,
-          organization_id: orgId,
-        };
-        console.log("Signup userData:", userData);
-        const { error } = await signUp(email, password, userData);
-        if (error) {
-          console.error("Signup error:", error);
-          toast({
-            title: "Signup failed",
-            description: error.message,
-            variant: "destructive",
+
+          // Create the auth user first so we get the auth user id. Include organization_id in metadata so the DB trigger can build the persons row.
+          // @ts-ignore - demo types
+          const { data: signData, error: signError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { name, organization_id: orgId, role: "team_leader" } },
           });
-        } else {
-          toast({
-            title: "Account created",
-            description: "Check your email to verify your account",
-          });
-        }
+
+          if (signError) {
+            console.error("Signup error:", signError);
+            toast({ title: "Signup failed", description: signError.message, variant: "destructive" });
+            setLoading(false);
+            return;
+          }
+
+          const authUserId = signData?.user?.id;
+
+          // Wait briefly for DB trigger to create persons row; if not created, insert it manually
+          // @ts-ignore
+          let { data: personRow } = await supabase.from("persons").select("id").eq("auth_user_id", authUserId).maybeSingle();
+          if (!personRow) {
+            // @ts-ignore
+            const { error: perr } = await supabase.from("persons").insert({ auth_user_id: authUserId, name, email, role: "team_leader", organization_id: orgId });
+            if (perr) {
+              console.warn("Could not insert persons row:", perr.message ?? perr);
+            }
+          }
+          toast({ title: "Account created", description: "Tjek din mail for bekræftelse (hvis relevant)" });
       }
     } catch (error: any) {
       console.error("Signup exception:", error);
@@ -127,25 +121,15 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">
-            Nordstack Pitch'nSales
-          </CardTitle>
-          <CardDescription>
-            {isLogin ? "Sign in to your account" : "Create a new account"}
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold text-primary">Nordstack Pitch'nSales</CardTitle>
+          <CardDescription>{isLogin ? "Log ind" : "Opret teamlead"}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <Label htmlFor="name">Navn</Label>
+                <Input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
             )}
 
@@ -161,78 +145,16 @@ const Auth = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Label htmlFor="password">Adgangskode</Label>
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
             {!isLogin && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={role}
-                    onValueChange={(value: "user" | "team_leader") =>
-                      setRole(value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="team_leader">Team Leader</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="companyName">Virksomhed</Label>
+                  <Input id="companyName" type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Virksomhedsnavn" required />
                 </div>
-
-                {role === "team_leader" ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="companyName">Company Name</Label>
-                      <Input
-                        id="companyName"
-                        type="text"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Enter company name"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="organizationName">
-                        Organization Name
-                      </Label>
-                      <Input
-                        id="organizationName"
-                        type="text"
-                        value={organizationName}
-                        onChange={(e) => setOrganizationName(e.target.value)}
-                        placeholder="Enter organization name"
-                        required
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="organizationId">
-                      Organization ID (få fra din teamlead)
-                    </Label>
-                    <Input
-                      id="organizationId"
-                      type="text"
-                      value={organizationId}
-                      onChange={(e) => setOrganizationId(e.target.value)}
-                      placeholder="Indtast org ID fra din teamlead"
-                      required
-                    />
-                  </div>
-                )}
               </>
             )}
 
